@@ -1,30 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- This sets your page title. You can change this to whatever you want! -->
-    <title>Aerospace Jam Example</title>
-    <!-- The below script tag is used to load socket.io from the server. -->
+    <title>Aerospace Jam Base Station</title>
     <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .sensor-block { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+    </style>
 </head>
 <body>
-    <h1>Aerospace Jam Example</h1>
-    <!-- Notice how the span that contains the placeholder value has an ID. We reference this ID later in the script, and it lets us pick this element in specific. -->
-    <p><b>Random number chosen by the Pi: </b> <span id="randomNumber">Loading...</span></p>
+    <h1>Aerospace Jam Base Station</h1>
+    
+    <button id="doAThingButton">Test Button Interaction</button>
+    <hr>
+
+    <div class="sensor-block">
+        <h3>Barometric Pressure (BMP180)</h3>
+        <p>Pressure: <span id="barometricPressure">Loading...</span> hPa</p>
+    </div>
+
+    <div class="sensor-block">
+        <h3>Accelerometer (MPU-6050)</h3>
+        <p>X: <span id="accelX">0</span> | Y: <span id="accelY">0</span> | Z: <span id="accelZ">0</span> m/s²</p>
+        
+        <h3>Gyroscope (MPU-6050)</h3>
+        <p>X: <span id="gyroX">0</span> | Y: <span id="gyroY">0</span> | Z: <span id="gyroZ">0</span> deg</p>
+    </div>
+
     <script>
-        // This function wrapper (addEventListener) makes the inner contents run only when the DOM (Document Object Model) content is loaded.
-        // In simpler terms, this runs once the page has finished loading.
         document.addEventListener('DOMContentLoaded', function() {
-            // Then, we connect to our webserver using two special variables - you don't need to worry about this either.
             var socket = io.connect('http://' + document.domain + ':' + location.port);
-            // Now, we subscribe to the server's "update_data" events - this is sent every second by the background thread, but you can change both the events' names and the speed of these events being sent.
+
             socket.on('update_data', function(msg) {
-                // Now, we get the span that we defined before by its ID...
-                var randomNumberSpan = document.getElementById('randomNumber');
-                // And we set its content to the random number we just got from the server.
-                randomNumberSpan.textContent = msg.randomNumber;
-                // For new sensors, we can really easily repeat this! For instance, if you added a piece to the data on the server side called "mySensor", as in the other example, you could do:
-                // var mySensorSpan = document.getElementById('mySensor');
-                // mySensorSpan.textContent = msg.mySensor;
+                // BMP180
+                document.getElementById('barometricPressure').textContent = msg.barometricPressure;
+
+                // MPU-6050 Accelerometer
+                if(msg.accelX !== undefined) {
+                    document.getElementById('accelX').textContent = msg.accelX;
+                    document.getElementById('accelY').textContent = msg.accelY;
+                    document.getElementById('accelZ').textContent = msg.accelZ;
+                }
+
+                // MPU-6050 Gyroscope
+                if(msg.gyroX !== undefined) {
+                    document.getElementById('gyroX').textContent = msg.gyroX;
+                    document.getElementById('gyroY').textContent = msg.gyroY;
+                    document.getElementById('gyroZ').textContent = msg.gyroZ;
+                }
+            });
+
+            // Button Logic
+            var doAThingButton = document.getElementById('doAThingButton');
+            doAThingButton.addEventListener('click', function() {
+                socket.emit('do_a_thing', { hello: 'Hello, Aerospace Jam! This is a message being sent from the client to the server.' });
             });
         });
     </script>
