@@ -4,27 +4,38 @@
     <title>Aerospace Jam Base Station</title>
     <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
-        .sensor-block { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .sensor-block { 
+            background: #f9f9f9; 
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            margin-bottom: 15px; 
+            border-radius: 8px;
+        }
+        h3 { margin-top: 0; color: #333; }
+        .val { font-weight: bold; color: #0066cc; }
     </style>
 </head>
 <body>
     <h1>Aerospace Jam Base Station</h1>
     
-    <button id="doAThingButton">Test Button Interaction</button>
+    <button id="doAThingButton">Test Interaction</button>
     <hr>
 
     <div class="sensor-block">
-        <h3>Barometric Pressure (BMP180)</h3>
-        <p>Pressure: <span id="barometricPressure">Loading...</span> hPa</p>
+        <h3>Barometer (BMP180)</h3>
+        <p>Pressure: <span id="barometricPressure" class="val">Loading...</span> hPa</p>
     </div>
 
     <div class="sensor-block">
-        <h3>Accelerometer (MPU-6050)</h3>
-        <p>X: <span id="accelX">0</span> | Y: <span id="accelY">0</span> | Z: <span id="accelZ">0</span> m/s²</p>
-        
-        <h3>Gyroscope (MPU-6050)</h3>
-        <p>X: <span id="gyroX">0</span> | Y: <span id="gyroY">0</span> | Z: <span id="gyroZ">0</span> deg</p>
+        <h3>LiDAR (TF-Luna)</h3>
+        <p>Distance: <span id="lidarDistance" class="val">Loading...</span> cm</p>
+    </div>
+
+    <div class="sensor-block">
+        <h3>IMU (MPU-6050)</h3>
+        <p>Accel: X:<span id="accelX" class="val">0</span> Y:<span id="accelY" class="val">0</span> Z:<span id="accelZ" class="val">0</span></p>
+        <p>Gyro: X:<span id="gyroX" class="val">0</span> Y:<span id="gyroY" class="val">0</span> Z:<span id="gyroZ" class="val">0</span></p>
     </div>
 
     <script>
@@ -33,27 +44,25 @@
 
             socket.on('update_data', function(msg) {
                 // BMP180
-                document.getElementById('barometricPressure').textContent = msg.barometricPressure;
+                if(msg.barometricPressure) document.getElementById('barometricPressure').textContent = msg.barometricPressure;
 
-                // MPU-6050 Accelerometer
+                // TF-Luna
+                if(msg.lidarDistance) document.getElementById('lidarDistance').textContent = msg.lidarDistance;
+
+                // MPU-6050
                 if(msg.accelX !== undefined) {
                     document.getElementById('accelX').textContent = msg.accelX;
                     document.getElementById('accelY').textContent = msg.accelY;
                     document.getElementById('accelZ').textContent = msg.accelZ;
-                }
-
-                // MPU-6050 Gyroscope
-                if(msg.gyroX !== undefined) {
                     document.getElementById('gyroX').textContent = msg.gyroX;
                     document.getElementById('gyroY').textContent = msg.gyroY;
                     document.getElementById('gyroZ').textContent = msg.gyroZ;
                 }
             });
 
-            // Button Logic
             var doAThingButton = document.getElementById('doAThingButton');
             doAThingButton.addEventListener('click', function() {
-                socket.emit('do_a_thing', { hello: 'Hello, Aerospace Jam! This is a message being sent from the client to the server.' });
+                socket.emit('do_a_thing', { hello: 'Hello from Client!' });
             });
         });
     </script>
