@@ -12,15 +12,31 @@
             margin-bottom: 15px; 
             border-radius: 8px;
         }
-        h3 { margin-top: 0; color: #333; }
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #eef;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 0 10px;
+            cursor: pointer;
+        }
         .val { font-weight: bold; color: #0066cc; }
     </style>
 </head>
 <body>
     <h1>Aerospace Jam Base Station</h1>
     
-    <button id="doAThingButton">Test Interaction</button>
-    <hr>
+    <div class="controls">
+        <h3>Motor Control</h3>
+        <button id="btnForward">Forward</button>
+        <button id="btnStop" style="background-color: #ffcccc;">STOP</button>
+        <button id="btnBackward">Backward</button>
+    </div>
 
     <div class="sensor-block">
         <h3>Barometer (BMP180)</h3>
@@ -42,6 +58,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             var socket = io.connect('http://' + document.domain + ':' + location.port);
 
+            // Update Sensor Data
             socket.on('update_data', function(msg) {
                 // BMP180
                 if(msg.barometricPressure) document.getElementById('barometricPressure').textContent = msg.barometricPressure;
@@ -60,9 +77,22 @@
                 }
             });
 
-            var doAThingButton = document.getElementById('doAThingButton');
-            doAThingButton.addEventListener('click', function() {
-                socket.emit('do_a_thing', { hello: 'Hello from Client!' });
+            // Motor Control Logic
+            function sendMotorCommand(action) {
+                console.log('Sending motor command:', action);
+                socket.emit('control_motor', { action: action });
+            }
+
+            document.getElementById('btnForward').addEventListener('click', function() {
+                sendMotorCommand('forward');
+            });
+            
+            document.getElementById('btnBackward').addEventListener('click', function() {
+                sendMotorCommand('backward');
+            });
+            
+            document.getElementById('btnStop').addEventListener('click', function() {
+                sendMotorCommand('stop');
             });
         });
     </script>
