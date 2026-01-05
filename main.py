@@ -7,8 +7,6 @@ import random
 from bmp180 import BMP180
 
 app = Flask(__name__)
-# Security key (added for safety, though not explicitly in basic tutorial, it's good practice)
-app.config['SECRET_KEY'] = 'aerospace-jam-secret'
 socketio = SocketIO(app)
 
 # Create an object to represent our BMP180 sensor
@@ -40,6 +38,13 @@ def background_thread():
 def handle_connect():
     print('Client connected')
     socketio.start_background_task(target=background_thread)
+
+# Added: Listen for the 'do_a_thing' event from the client
+@socketio.on('do_a_thing')
+def do_a_thing(msg):
+    # 'msg' will contain the data sent from the client
+    # Let's print what we just received to the console!
+    print(msg['hello'])
 
 def main():
     socketio.run(app, host='0.0.0.0', port=80, allow_unsafe_werkzeug=True)
