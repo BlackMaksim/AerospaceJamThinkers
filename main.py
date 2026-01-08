@@ -3,9 +3,10 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO
 import random
 import time
+import csv                      #Library for CSV file handling
+from datetime import datetime   #Library for timestamps
 
 # Import sensor libraries provided by SDK
-# Note: These imports work on Pi because SDK is pre-installed
 from bmp180 import BMP180
 from mpu6050 import mpu6050
 from tfluna import TFLuna
@@ -65,6 +66,21 @@ def index():
     return render_template('index.html')
 
 def background_thread():
+    # Create a unique filename with timestamp to prevent overwriting
+    filename = f"flight_log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
+    log_file = None
+    log_writer = None
+
+    try:
+        # Open file ONCE for performance (Hybrid Method)
+        log_file = open(filename, mode='w', newline='')
+        log_writer = csv.writer(log_file)
+        # Write CSV Header
+        log_writer.writerow(['Timestamp', 'AccelX', 'AccelY', 'AccelZ', 'GyroX', 'GyroY', 'GyroZ'])
+        print(f"INFO: Logging started to file {filename}")
+    except Exception as e:
+        print(f"ERROR: Could not open log file: {e}")
+
     while True:
         socketio.sleep(1) # Loop every second
         try:
@@ -87,6 +103,18 @@ def background_thread():
                 # Mock data (stationary)
                 ax, ay, az = 0.0, 0.0, 9.8
                 gx, gy, gz = 0.0, 0.0, 0.0
+
+            # --- LEVEL 2 START: WRITE TO FILE ---
+            # Write data row and flush to disk immediately
+            if log_writer:
+                current_time = datetime.now().strftime("%H:%M:%S")
+                log_writer.writerow([
+                    current_time, 
+                    round(ax, 2), round(ay, 2), round(az, 2),
+                    round(gx, 2), round(gy, 2), round(gz, 2)
+                ])
+                log_file.flush() # Ensures data is saved even if power is lost
+            # --- LEVEL 2 END ---
 
             # 3. LiDAR
             lidar_val = 0
