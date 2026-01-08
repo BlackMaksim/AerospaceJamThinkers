@@ -1,100 +1,229 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Aerospace Jam Base Station</title>
+    <title>Aerospace Jam - Mission Control</title>
     <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+    
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-        .sensor-block { 
-            background: #f9f9f9; 
-            border: 1px solid #ddd; 
+        body { 
+            font-family: 'Segoe UI', monospace; 
+            background: #1a1a1a; 
+            color: #ecf0f1; 
+            padding: 20px; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+
+        .dashboard { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+        }
+
+        /* Data Cards */
+        .card { 
+            background: #2d2d2d; 
+            border-radius: 10px; 
             padding: 15px; 
-            margin-bottom: 15px; 
-            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
+            border: 1px solid #444;
         }
-        .controls {
+
+        h2 { 
+            margin-top: 0; 
+            color: #4caf50; /* Matrix Green */
+            font-size: 1.1rem; 
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .value-display { 
+            font-size: 2.5rem; 
+            font-weight: bold; 
+            color: #00bcd4; /* Neon Blue */
             text-align: center;
-            margin-bottom: 20px;
+            padding: 10px 0;
+        }
+        
+        .unit {
+            font-size: 1rem;
+            color: #888;
+            text-align: center;
+        }
+
+        /* --- CONTROLS SECTION --- */
+        .controls { 
+            grid-column: 1 / -1; 
+            text-align: center; 
+            margin-bottom: 20px; 
+            background: #222;
             padding: 15px;
-            background: #eef;
-            border-radius: 8px;
+            border-radius: 10px;
         }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            margin: 0 10px;
-            cursor: pointer;
+
+        h1 { margin: 0 0 15px 0; color: #fff; text-shadow: 0 0 10px #4caf50; }
+
+        button { 
+            padding: 15px 40px; 
+            font-size: 18px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 5px; 
+            margin: 0 10px; 
+            font-weight: bold;
+            color: white;
+            transition: all 0.2s;
+            font-family: 'Segoe UI', sans-serif;
         }
-        .val { font-weight: bold; color: #0066cc; }
+
+        .btn-fwd { background: #27ae60; box-shadow: 0 4px 0 #1e8449; }
+        .btn-stop { background: #c0392b; box-shadow: 0 4px 0 #922b21; }
+        .btn-bwd { background: #f39c12; box-shadow: 0 4px 0 #d35400; }
+
+        button:active { transform: translateY(4px); box-shadow: none; }
+        
+        /* Chart Sizing */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
-    <h1>Aerospace Jam Base Station</h1>
-    
+
     <div class="controls">
-        <h3>Motor Control</h3>
-        <button id="btnForward">Forward</button>
-        <button id="btnStop" style="background-color: #ffcccc;">STOP</button>
-        <button id="btnBackward">Backward</button>
+        <h1>🚀 LEVEL 3: MISSION CONTROL</h1>
+        <button class="btn-fwd" onclick="sendCommand('forward')">⬆️ FORWARD</button>
+        <button class="btn-stop" onclick="sendCommand('stop')">⏹️ STOP</button>
+        <button class="btn-bwd" onclick="sendCommand('backward')">⬇️ BACKWARD</button>
     </div>
 
-    <div class="sensor-block">
-        <h3>Barometer (BMP180)</h3>
-        <p>Pressure: <span id="barometricPressure" class="val">Loading...</span> hPa</p>
-    </div>
+    <div class="dashboard">
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>📈 Accelerometer (m/s²)</h2>
+            <div class="chart-container">
+                <canvas id="accelChart"></canvas>
+            </div>
+        </div>
 
-    <div class="sensor-block">
-        <h3>LiDAR (TF-Luna)</h3>
-        <p>Distance: <span id="lidarDistance" class="val">Loading...</span> cm</p>
-    </div>
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>🔄 Gyroscope (deg/s)</h2>
+            <div class="chart-container">
+                <canvas id="gyroChart"></canvas>
+            </div>
+        </div>
 
-    <div class="sensor-block">
-        <h3>IMU (MPU-6050)</h3>
-        <p>Accel: X:<span id="accelX" class="val">0</span> Y:<span id="accelY" class="val">0</span> Z:<span id="accelZ" class="val">0</span></p>
-        <p>Gyro: X:<span id="gyroX" class="val">0</span> Y:<span id="gyroY" class="val">0</span> Z:<span id="gyroZ" class="val">0</span></p>
+        <div class="card">
+            <h2>📡 LiDAR Distance</h2>
+            <div id="lidarVal" class="value-display">--</div>
+            <div class="unit">cm</div>
+        </div>
+        <div class="card">
+            <h2>☁️ Barometer</h2>
+            <div id="pressVal" class="value-display">--</div>
+            <div class="unit">hPa</div>
+        </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var socket = io.connect('http://' + document.domain + ':' + location.port);
+        // Use reliable connection string provided by Flask-SocketIO
+        const socket = io.connect('http://' + document.domain + ':' + location.port);
+        const maxDataPoints = 30; 
 
-            // Update Sensor Data
-            socket.on('update_data', function(msg) {
-                // BMP180
-                if(msg.barometricPressure) document.getElementById('barometricPressure').textContent = msg.barometricPressure;
-
-                // TF-Luna
-                if(msg.lidarDistance) document.getElementById('lidarDistance').textContent = msg.lidarDistance;
-
-                // MPU-6050
-                if(msg.accelX !== undefined) {
-                    document.getElementById('accelX').textContent = msg.accelX;
-                    document.getElementById('accelY').textContent = msg.accelY;
-                    document.getElementById('accelZ').textContent = msg.accelZ;
-                    document.getElementById('gyroX').textContent = msg.gyroX;
-                    document.getElementById('gyroY').textContent = msg.gyroY;
-                    document.getElementById('gyroZ').textContent = msg.gyroZ;
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false, 
+            scales: {
+                x: { 
+                    display: true, 
+                    ticks: { color: '#888' },
+                    grid: { color: '#333' }
+                },
+                y: { 
+                    display: true,
+                    ticks: { color: '#888' },
+                    grid: { color: '#333' } 
                 }
-            });
+            },
+            plugins: {
+                legend: { labels: { color: '#fff' } }
+            },
+            elements: { 
+                point: { radius: 0 }, 
+                line: { tension: 0.1 } 
+            } 
+        };
 
-            // Motor Control Logic
-            function sendMotorCommand(action) {
-                console.log('Sending motor command:', action);
-                socket.emit('control_motor', { action: action });
-            }
-
-            document.getElementById('btnForward').addEventListener('click', function() {
-                sendMotorCommand('forward');
-            });
-            
-            document.getElementById('btnBackward').addEventListener('click', function() {
-                sendMotorCommand('backward');
-            });
-            
-            document.getElementById('btnStop').addEventListener('click', function() {
-                sendMotorCommand('stop');
-            });
+        // --- INITIALIZE CHARTS ---
+        
+        const ctxAccel = document.getElementById('accelChart').getContext('2d');
+        const accelChart = new Chart(ctxAccel, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'X', borderColor: '#ff6384', data: [], borderWidth: 2, fill: false },
+                    { label: 'Y', borderColor: '#36a2eb', data: [], borderWidth: 2, fill: false },
+                    { label: 'Z', borderColor: '#cc65fe', data: [], borderWidth: 2, fill: false }
+                ]
+            },
+            options: commonOptions
         });
+
+        const ctxGyro = document.getElementById('gyroChart').getContext('2d');
+        const gyroChart = new Chart(ctxGyro, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'X', borderColor: '#ff9f40', data: [], borderWidth: 2, fill: false },
+                    { label: 'Y', borderColor: '#4bc0c0', data: [], borderWidth: 2, fill: false },
+                    { label: 'Z', borderColor: '#ffcd56', data: [], borderWidth: 2, fill: false }
+                ]
+            },
+            options: commonOptions
+        });
+
+        // --- DATA UPDATE LOGIC ---
+        socket.on('update_data', (msg) => {
+            if(msg.accelX !== undefined) {
+                // 1. Update Text
+                document.getElementById('lidarVal').innerText = msg.lidarDistance; 
+                document.getElementById('pressVal').innerText = msg.barometricPressure;
+
+                // 2. Update Charts
+                if(msg.time) {
+                    addData(accelChart, msg.time, [msg.accelX, msg.accelY, msg.accelZ]);
+                    addData(gyroChart, msg.time, [msg.gyroX, msg.gyroY, msg.gyroZ]);
+                }
+            }
+        });
+
+        function addData(chart, label, newValues) {
+            chart.data.labels.push(label);
+            chart.data.datasets.forEach((dataset, index) => {
+                dataset.data.push(newValues[index]);
+            });
+
+            if (chart.data.labels.length > maxDataPoints) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach((dataset) => {
+                    dataset.data.shift();
+                });
+            }
+            chart.update();
+        }
+
+        // --- MOTOR COMMANDS ---
+        function sendCommand(act) {
+            console.log("Sending command:", act);
+            socket.emit('control_motor', { action: act });
+        }
     </script>
 </body>
 </html>

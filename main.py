@@ -3,8 +3,8 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO
 import random
 import time
-import csv                      #Library for CSV file handling
-from datetime import datetime   #Library for timestamps
+import csv                      # Library for CSV file handling
+from datetime import datetime   # Library for timestamps
 
 # Import sensor libraries provided by SDK
 from bmp180 import BMP180
@@ -66,13 +66,14 @@ def index():
     return render_template('index.html')
 
 def background_thread():
+    # --- LEVEL 2: LOGGING SETUP ---
     # Create a unique filename with timestamp to prevent overwriting
     filename = f"flight_log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
     log_file = None
     log_writer = None
 
     try:
-        # Open file ONCE for performance (Hybrid Method)
+        # Hybrid Method: Open file ONCE for performance
         log_file = open(filename, mode='w', newline='')
         log_writer = csv.writer(log_file)
         # Write CSV Header
@@ -90,7 +91,6 @@ def background_thread():
             if bmp:
                 pressure = bmp.get_pressure()
             else:
-                # Mock data if sensor is missing
                 pressure = round(random.uniform(990.0, 1020.0), 2)
 
             # 2. IMU (Accel/Gyro)
@@ -100,21 +100,20 @@ def background_thread():
                 ax, ay, az = accel['x'], accel['y'], accel['z']
                 gx, gy, gz = gyro['x'], gyro['y'], gyro['z']
             else:
-                # Mock data (stationary)
                 ax, ay, az = 0.0, 0.0, 9.8
                 gx, gy, gz = 0.0, 0.0, 0.0
 
-            # --- LEVEL 2 START: WRITE TO FILE ---
+            # Get current time for both logging and UI
+            current_time = datetime.now().strftime("%H:%M:%S")
+
             # Write data row and flush to disk immediately
             if log_writer:
-                current_time = datetime.now().strftime("%H:%M:%S")
                 log_writer.writerow([
                     current_time, 
                     round(ax, 2), round(ay, 2), round(az, 2),
                     round(gx, 2), round(gy, 2), round(gz, 2)
                 ])
                 log_file.flush() # Ensures data is saved even if power is lost
-            # --- LEVEL 2 END ---
 
             # 3. LiDAR
             lidar_val = 0
@@ -123,19 +122,17 @@ def background_thread():
                     dist, strength, temp = tfluna.read()
                     lidar_val = round(dist * 100.0, 2)
                 except:
-                    lidar_val = -1 # Error reading
+                    lidar_val = -1 
             else:
-                lidar_val = 0 # Sensor missing
+                lidar_val = 0 
 
             # --- SEND DATA TO CLIENT ---
             socketio.emit('update_data', {
+                'time': current_time,          # <--- LEVEL 3: Time for Chart X-Axis
                 'randomNumber': random.randint(1, 100),
                 'barometricPressure': pressure,
-                # Accelerometer
                 'accelX': round(ax, 2), 'accelY': round(ay, 2), 'accelZ': round(az, 2),
-                # Gyroscope
                 'gyroX': round(gx, 2), 'gyroY': round(gy, 2), 'gyroZ': round(gz, 2),
-                # LiDAR
                 'lidarDistance': lidar_val
             })
         except Exception as e:
