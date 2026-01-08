@@ -10,26 +10,23 @@
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .card { background: #2d2d2d; border-radius: 10px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); border: 1px solid #444; }
         h2 { margin-top: 0; color: #4caf50; font-size: 1.1rem; border-bottom: 1px solid #444; padding-bottom: 5px; text-transform: uppercase; }
-        
-        /* Grid Styles */
         .pos-grid { display: flex; justify-content: space-around; font-size: 1.8rem; font-weight: bold; font-family: monospace; padding: 10px 0; }
         .rot-grid { display: flex; justify-content: space-around; font-size: 1.5rem; font-weight: bold; font-family: monospace; padding: 10px 0; border-top: 1px solid #444; margin-top: 10px;}
         .val-box { text-align: center; }
         .label { font-size: 0.8rem; color: #888; display: block; }
-        
         .controls { grid-column: 1 / -1; text-align: center; margin-bottom: 20px; background: #222; padding: 15px; border-radius: 10px; }
         button { padding: 15px 40px; font-size: 18px; cursor: pointer; border: none; border-radius: 5px; margin: 0 10px; font-weight: bold; color: white; transition: all 0.2s; }
         .btn-fwd { background: #27ae60; box-shadow: 0 4px 0 #1e8449; }
         .btn-stop { background: #c0392b; box-shadow: 0 4px 0 #922b21; }
         .btn-bwd { background: #f39c12; box-shadow: 0 4px 0 #d35400; }
         button:active { transform: translateY(4px); box-shadow: none; }
-        canvas { max-height: 200px; }
+        canvas { max-height: 180px; }
     </style>
 </head>
 <body>
 
     <div class="controls">
-        <h1>🚀 LEVEL 4: NAVIGATION SYSTEM</h1>
+        <h1>🚀 LEVEL 4: NAVIGATION SYSTEM (VERLET MODE)</h1>
         <button class="btn-fwd" onclick="sendCommand('forward')">⬆️ FORWARD</button>
         <button class="btn-stop" onclick="sendCommand('stop')">⏹️ STOP</button>
         <button class="btn-bwd" onclick="sendCommand('backward')">⬇️ BACKWARD</button>
@@ -37,35 +34,35 @@
 
     <div class="dashboard">
         <div class="card" style="grid-column: 1 / -1; border: 1px solid #f1c40f;">
-            <h2 style="color: #f1c40f;">📍 Integrated Navigation Data (Dead Reckoning)</h2>
-            
+            <h2 style="color: #f1c40f;">📍 Integrated Navigation Data (Absolute Position)</h2>
             <div class="pos-grid">
                 <div class="val-box"><span class="label">POS X (m)</span><span id="posX" style="color: #f1c40f">0.00</span></div>
                 <div class="val-box"><span class="label">POS Y (m)</span><span id="posY" style="color: #e67e22">0.00</span></div>
                 <div class="val-box"><span class="label">POS Z (m)</span><span id="posZ" style="color: #e74c3c">0.00</span></div>
             </div>
-
-            <div class="rot-grid">
-                <div class="val-box"><span class="label">ROLL (deg)</span><span id="rotX" style="color: #3498db">0.0</span></div>
-                <div class="val-box"><span class="label">PITCH (deg)</span><span id="rotY" style="color: #9b59b6">0.0</span></div>
-                <div class="val-box"><span class="label">YAW (deg)</span><span id="rotZ" style="color: #1abc9c">0.0</span></div>
-            </div>
-
             <canvas id="posChart"></canvas>
         </div>
 
-        <div class="card" style="grid-column: 1 / -1;">
-            <h2>📈 Live Acceleration (m/s²)</h2>
+        <div class="card">
+            <h2>📈 Acceleration (m/s²)</h2>
             <canvas id="accelChart"></canvas>
         </div>
 
         <div class="card">
-            <h2>📡 LiDAR</h2>
-            <div id="lidarVal" style="font-size: 2.5rem; text-align: center; color: #00bcd4; font-weight: bold;">-- cm</div>
+            <h2>🔄 Absolute Rotation (deg)</h2>
+            <div class="rot-grid">
+                <div class="val-box"><span class="label">ROLL</span><span id="rotX" style="color: #3498db">0.0</span></div>
+                <div class="val-box"><span class="label">PITCH</span><span id="rotY" style="color: #9b59b6">0.0</span></div>
+                <div class="val-box"><span class="label">YAW</span><span id="rotZ" style="color: #1abc9c">0.0</span></div>
+            </div>
         </div>
+
         <div class="card">
-            <h2>☁️ Pressure</h2>
-            <div id="pressVal" style="font-size: 2.5rem; text-align: center; color: #00bcd4; font-weight: bold;">-- hPa</div>
+            <h2>📡 LiDAR / Barometer</h2>
+            <div style="display: flex; justify-content: space-around;">
+                <div id="lidarVal" style="font-size: 2rem; color: #00bcd4;">-- cm</div>
+                <div id="pressVal" style="font-size: 2rem; color: #00bcd4;">-- hPa</div>
+            </div>
         </div>
     </div>
 
@@ -83,7 +80,6 @@
             elements: { point: { radius: 0 }, line: { tension: 0.1 } }
         };
 
-        // 1. POSITION CHART
         const ctxPos = document.getElementById('posChart').getContext('2d');
         const posChart = new Chart(ctxPos, {
             type: 'line',
@@ -95,7 +91,6 @@
             options: commonOptions
         });
 
-        // 2. ACCEL CHART
         const ctxAccel = document.getElementById('accelChart').getContext('2d');
         const accelChart = new Chart(ctxAccel, {
             type: 'line',
@@ -107,23 +102,17 @@
             options: commonOptions
         });
 
-        // UPDATE LOGIC
         socket.on('update_data', (msg) => {
-            if(msg.accelX !== undefined) {
-                // Update Text Numbers
+            if(msg.posX !== undefined) {
                 document.getElementById('posX').innerText = msg.posX.toFixed(2);
                 document.getElementById('posY').innerText = msg.posY.toFixed(2);
                 document.getElementById('posZ').innerText = msg.posZ.toFixed(2);
-                
-                // Update Rotation Numbers (NEW)
                 document.getElementById('rotX').innerText = msg.rotX.toFixed(1);
                 document.getElementById('rotY').innerText = msg.rotY.toFixed(1);
                 document.getElementById('rotZ').innerText = msg.rotZ.toFixed(1);
-
                 document.getElementById('lidarVal').innerText = msg.lidarDistance + " cm";
                 document.getElementById('pressVal').innerText = msg.barometricPressure + " hPa";
 
-                // Update Charts
                 addData(posChart, msg.time, [msg.posX, msg.posY, msg.posZ]);
                 addData(accelChart, msg.time, [msg.accelX, msg.accelY, msg.accelZ]);
             }
@@ -132,7 +121,6 @@
         function addData(chart, label, newValues) {
             chart.data.labels.push(label);
             chart.data.datasets.forEach((dataset, index) => dataset.data.push(newValues[index]));
-            
             if (chart.data.labels.length > maxDataPoints) {
                 chart.data.labels.shift();
                 chart.data.datasets.forEach(ds => ds.data.shift());
@@ -140,10 +128,7 @@
             chart.update();
         }
 
-        function sendCommand(act) { 
-            console.log("Sending command:", act);
-            socket.emit('control_motor', { action: act }); 
-        }
+        function sendCommand(act) { socket.emit('control_motor', { action: act }); }
     </script>
 </body>
 </html>

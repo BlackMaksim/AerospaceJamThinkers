@@ -40,15 +40,14 @@ except:
 try:
     tfluna = TFLuna()
     tfluna.open()
-    tfluna.set_samp_rate(10) # 10Hz sampling for integration
+    tfluna.set_samp_rate(10) 
     print("SUCCESS: TF-Luna initialized.")
 except:
     tfluna = None
     print("WARNING: TF-Luna not found. Using mock.")
 
 # 4. Motors
-IN1 = 12
-IN2 = 13
+IN1, IN2 = 12, 13
 gpio_active = False
 try:
     GPIO.setmode(GPIO.BCM)
@@ -63,16 +62,19 @@ except:
 def index():
     return render_template('index.html')
 
-# Global variables to store state between loop iterations
+# --- PHYSICS STATE VARIABLES (LEVEL 4) ---
 velocity = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 position = {'x': 0.0, 'y': 0.0, 'z': 0.0}
-rotation = {'x': 0.0, 'y': 0.0, 'z': 0.0} # Roll, Pitch, Yaw
+rotation = {'x': 0.0, 'y': 0.0, 'z': 0.0}
+# We need to store the previous readings for Velocity Verlet / Trapezoidal integration
+prev_accel = {'x': 0.0, 'y': 0.0, 'z': 0.0}
+prev_gyro = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 last_time = time.time()
 
 def background_thread():
-    global velocity, position, rotation, last_time
+    global velocity, position, rotation, prev_accel, prev_gyro, last_time
 
-    # Create unique log file
+    # --- LEVEL 4 LOGGING ---
     filename = f"flight_log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
     log_file = None
     log_writer = None
@@ -80,31 +82,27 @@ def background_thread():
     try:
         log_file = open(filename, mode='w', newline='')
         log_writer = csv.writer(log_file)
-        # Extended Header for Physics Data including Rotation
         headers = ['Timestamp', 'AccelX', 'AccelY', 'AccelZ', 
                    'VelX', 'VelY', 'VelZ', 
                    'PosX', 'PosY', 'PosZ', 
                    'GyroX', 'GyroY', 'GyroZ',
                    'RotX', 'RotY', 'RotZ'] 
         log_writer.writerow(headers)
-        print(f"INFO: Level 4 Logging started: {filename}")
+        print(f"INFO: High-Accuracy Logging started: {filename}")
     except:
         print("ERROR: Could not create log file.")
 
     while True:
-        #Faster loop = better integration accuracy.
+        # 20Hz loop for stable integration
         socketio.sleep(0.05) 
         
         current_sys_time = time.time()
-        dt = current_sys_time - last_time # Delta Time
+        dt = current_sys_time - last_time
         last_time = current_sys_time
 
         try:
             # 1. READ SENSORS
-            if bmp:
-                pressure = bmp.get_pressure()
-            else:
-                pressure = 1013.25
+            pressure = bmp.get_pressure() if bmp else 1013.25
 
             if mpu:
                 accel = mpu.get_accel_data()
@@ -112,81 +110,66 @@ def background_thread():
                 ax, ay, az = accel['x'], accel['y'], accel['z']
                 gx, gy, gz = gyro['x'], gyro['y'], gyro['z']
             else:
-                # Mock Data
-                ax = random.uniform(-0.1, 0.1)
-                ay = random.uniform(-0.1, 0.1)
-                az = 9.81 + random.uniform(-0.1, 0.1)
-                gx, gy, gz = random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)
+                # Mock Data with slight noise
+                ax, ay, az = random.uniform(-0.05, 0.05), random.uniform(-0.05, 0.05), 9.81 + random.uniform(-0.05, 0.05)
+                gx, gy, gz = random.uniform(-0.5, 0.5), random.uniform(-0.5, 0.5), random.uniform(-0.5, 0.5)
 
-            # 2. PROCESS IMU DATA
-
-            # A. Gravity Compensation (Z-axis only)
+            # --- PHYSICS ENGINE (LEVEL 4 - VELOCITY VERLET) ---
+            
+            # A. Gravity Compensation (Z-axis)
             az_real = az - 9.81
             
-            # B. Noise Filter 
-            # Ignore small vibrations to prevent drift when stationary
-            threshold = 0.2
-            if abs(ax) < threshold: ax = 0
-            if abs(ay) < threshold: ay = 0
-            if abs(az_real) < threshold: az_real = 0
-            
-            gyro_threshold = 1.0 # Degrees per second deadzone
-            if abs(gx) < gyro_threshold: gx = 0
-            if abs(gy) < gyro_threshold: gy = 0
-            if abs(gz) < gyro_threshold: gz = 0
+            # B. Noise Deadzone Filter
+            accel_thresh = 0.2
+            ax = ax if abs(ax) > accel_thresh else 0
+            ay = ay if abs(ay) > accel_thresh else 0
+            az_real = az_real if abs(az_real) > accel_thresh else 0
 
-            # C. Integration 1: Accel -> Velocity (v = v0 + a*t)
-            velocity['x'] += ax * dt
-            velocity['y'] += ay * dt
-            velocity['z'] += az_real * dt
+            gyro_thresh = 1.0
+            gx = gx if abs(gx) > gyro_thresh else 0
+            gy = gy if abs(gy) > gyro_thresh else 0
+            gz = gz if abs(gz) > gyro_thresh else 0
 
-            # D. Integration 2: Velocity -> Position (p = p0 + v*t)
-            position['x'] += velocity['x'] * dt
-            position['y'] += velocity['y'] * dt
-            position['z'] += velocity['z'] * dt
+            # C. VELOCITY VERLET INTEGRATION (More accurate than Euler)
+            # 1. Update Position using current velocity and previous acceleration
+            position['x'] += velocity['x'] * dt + 0.5 * prev_accel['x'] * (dt**2)
+            position['y'] += velocity['y'] * dt + 0.5 * prev_accel['y'] * (dt**2)
+            position['z'] += velocity['z'] * dt + 0.5 * prev_accel['z'] * (dt**2)
+
+            # 2. Update Velocity using average of previous and current acceleration (Trapezoidal)
+            velocity['x'] += 0.5 * (prev_accel['x'] + ax) * dt
+            velocity['y'] += 0.5 * (prev_accel['y'] + ay) * dt
+            velocity['z'] += 0.5 * (prev_accel['z'] + az_real) * dt
             
-            # E. Integration 3: Gyro Rate -> Rotation Angle (angle = angle0 + rate*t)
-            rotation['x'] += gx * dt # Roll
-            rotation['y'] += gy * dt # Pitch
-            rotation['z'] += gz * dt # Yaw
+            # 3. Update Rotation using Trapezoidal rule for angles
+            rotation['x'] += 0.5 * (prev_gyro['x'] + gx) * dt
+            rotation['y'] += 0.5 * (prev_gyro['y'] + gy) * dt
+            rotation['z'] += 0.5 * (prev_gyro['z'] + gz) * dt
+
+            # Store current values for the next loop
+            prev_accel = {'x': ax, 'y': ay, 'z': az_real}
+            prev_gyro = {'x': gx, 'y': gy, 'z': gz}
 
             # 3. LiDAR
-            lidar_val = 0
-            if tfluna:
-                try:
-                    dist, _, _ = tfluna.read()
-                    lidar_val = round(dist * 100.0, 2)
-                except: lidar_val = -1
-            else: lidar_val = 0
+            lidar_val = round(tfluna.read()[0] * 100.0, 2) if tfluna else 0
 
-            # 4. LOGGING TO FILE
+            # 4. LOGGING
             t_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            
             if log_writer:
-                log_writer.writerow([
-                    t_str, 
-                    round(ax, 2), round(ay, 2), round(az, 2),
-                    round(velocity['x'], 2), round(velocity['y'], 2), round(velocity['z'], 2),
-                    round(position['x'], 2), round(position['y'], 2), round(position['z'], 2),
-                    round(gx, 2), round(gy, 2), round(gz, 2),
-                    round(rotation['x'], 2), round(rotation['y'], 2), round(rotation['z'], 2)
-                ])
-                log_file.flush() # Force save to disk
+                log_writer.writerow([t_str, round(ax,2), round(ay,2), round(az,2),
+                                    round(velocity['x'],2), round(velocity['y'],2), round(velocity['z'],2),
+                                    round(position['x'],2), round(position['y'],2), round(position['z'],2),
+                                    round(gx,2), round(gy,2), round(gz,2),
+                                    round(rotation['x'],2), round(rotation['y'],2), round(rotation['z'],2)])
+                log_file.flush()
 
-            # 5. SEND TO WEB UI
+            # 5. SEND TO UI
             socketio.emit('update_data', {
                 'time': datetime.now().strftime("%H:%M:%S"),
                 'accelX': round(ax, 2), 'accelY': round(ay, 2), 'accelZ': round(az, 2),
-                # Position Data
-                'posX': round(position['x'], 2), 
-                'posY': round(position['y'], 2), 
-                'posZ': round(position['z'], 2),
-                # Rotation Data
-                'rotX': round(rotation['x'], 2),
-                'rotY': round(rotation['y'], 2),
-                'rotZ': round(rotation['z'], 2),
-                'lidarDistance': lidar_val,
-                'barometricPressure': pressure
+                'posX': round(position['x'], 2), 'posY': round(position['y'], 2), 'posZ': round(position['z'], 2),
+                'rotX': round(rotation['x'], 2), 'rotY': round(rotation['y'], 2), 'rotZ': round(rotation['z'], 2),
+                'lidarDistance': lidar_val, 'barometricPressure': pressure
             })
 
         except Exception as e:
@@ -196,15 +179,13 @@ def background_thread():
 def handle_connect():
     global last_time
     print('Client connected')
-    last_time = time.time() # Reset timer to avoid huge DT jump
+    last_time = time.time()
     socketio.start_background_task(target=background_thread)
 
 @socketio.on('control_motor')
 def handle_motor_control(message):
     if not gpio_active: return
     action = message.get('action')
-    print(f"Motor Command: {action}")
-    
     if action == 'forward':
         GPIO.output(IN1, GPIO.HIGH); GPIO.output(IN2, GPIO.LOW)
     elif action == 'backward':
