@@ -1,25 +1,23 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO
-import random
 import time
 import csv
 from datetime import datetime
 
-# Import sensor libraries provided by SDK
+# Import Sensors
 from bmp180 import BMP180
 from mpu6050 import mpu6050
 from tfluna import TFLuna
 import RPi.GPIO as GPIO
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'aerospace-jam-secret'
-# async_mode='threading' is critical for fast loops on Pi Zero
+app.config['SECRET_KEY'] = 'nasa-cant-crack-this-hehe'
+# Allow multiple clients to connect (threading mode)
 socketio = SocketIO(app, async_mode='threading')
 
-# --- HARDWARE INIT ---
 print("INFO: Initializing hardware...")
 
-# 1. Barometer
+# Barometer check
 try:
     bmp = BMP180()
     print("SUCCESS: BMP180 initialized.")
@@ -27,7 +25,7 @@ except:
     bmp = None
     print("WARNING: BMP180 not found. Using mock.")
 
-# 2. IMU
+# MPU check
 try:
     mpu = mpu6050(0x68)
     mpu.get_accel_data()
@@ -36,7 +34,7 @@ except:
     mpu = None
     print("WARNING: MPU-6050 not found. Using mock.")
 
-# 3. LiDAR
+# LiDAR check
 try:
     tfluna = TFLuna()
     tfluna.open()
@@ -46,7 +44,7 @@ except:
     tfluna = None
     print("WARNING: TF-Luna not found. Using mock.")
 
-# 4. Motors
+# Motors check
 IN1, IN2 = 12, 13
 gpio_active = False
 try:
@@ -62,19 +60,32 @@ except:
 def index():
     return render_template('index.html')
 
-# --- PHYSICS STATE VARIABLES (LEVEL 4) ---
+# # Drone state variables (position, velocity, rotation ...)
 velocity = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 position = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 rotation = {'x': 0.0, 'y': 0.0, 'z': 0.0}
-# We need to store the previous readings for Velocity Verlet / Trapezoidal integration
 prev_accel = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 prev_gyro = {'x': 0.0, 'y': 0.0, 'z': 0.0}
+gravity = 0.0
 last_time = time.time()
 
 def background_thread():
-    global velocity, position, rotation, prev_accel, prev_gyro, last_time
+    global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity
 
-    # --- LEVEL 4 LOGGING ---
+    # Gravitation calibration
+    print("Info: Drone Calibration... Do not touch the drone for 1 second!")
+    
+    socketio.sleep(1)
+
+    if mpu:
+        accel = mpu.get_accel_data()
+        gravity = accel['z']
+        print(f"SUCCESS: Gravity is {gravity:.2f} m/s²")
+    else:
+        gravity = 9.81
+        print("WARNING: MPU not found. Use standart fravity 9.81 m/s².")
+
+    # Creating a log file each second
     filename = f"flight_log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
     log_file = None
     log_writer = None
@@ -92,8 +103,8 @@ def background_thread():
     except:
         print("ERROR: Could not create log file.")
 
+    #main loop
     while True:
-        # 20Hz loop for stable integration
         socketio.sleep(0.05) 
         
         current_sys_time = time.time()
@@ -101,8 +112,11 @@ def background_thread():
         last_time = current_sys_time
 
         try:
-            # 1. READ SENSORS
-            pressure = bmp.get_pressure() if bmp else 1013.25
+            # Sensors reading
+            if bmp:
+                pressure = bmp.get_pressure()
+            else:
+                pressure = 1013.25
 
             if mpu:
                 accel = mpu.get_accel_data()
@@ -110,38 +124,41 @@ def background_thread():
                 ax, ay, az = accel['x'], accel['y'], accel['z']
                 gx, gy, gz = gyro['x'], gyro['y'], gyro['z']
             else:
-                # Mock Data with slight noise
-                ax, ay, az = random.uniform(-0.05, 0.05), random.uniform(-0.05, 0.05), 9.81 + random.uniform(-0.05, 0.05)
-                gx, gy, gz = random.uniform(-0.5, 0.5), random.uniform(-0.5, 0.5), random.uniform(-0.5, 0.5)
-
-            # --- PHYSICS ENGINE (LEVEL 4 - VELOCITY VERLET) ---
+                ax, ay, az = 0.0, 0.0, 9.81
+                gx, gy, gz = 0.0, 0.0, 0.0
+                
+            # Gravity Compensation (Z-axis)
+            az_real = az - gravity
             
-            # A. Gravity Compensation (Z-axis)
-            az_real = az - 9.81
-            
-            # B. Noise Deadzone Filter
+            # Filtering noises from the sensor
             accel_thresh = 0.2
-            ax = ax if abs(ax) > accel_thresh else 0
-            ay = ay if abs(ay) > accel_thresh else 0
-            az_real = az_real if abs(az_real) > accel_thresh else 0
-
+            if abs(ax) < accel_thresh:
+                ax = 0
+            if abs(ay) < accel_thresh:
+                ay = 0
+            if abs(az_real) < accel_thresh:
+                az_real = 0
+            
             gyro_thresh = 1.0
-            gx = gx if abs(gx) > gyro_thresh else 0
-            gy = gy if abs(gy) > gyro_thresh else 0
-            gz = gz if abs(gz) > gyro_thresh else 0
-
-            # C. VELOCITY VERLET INTEGRATION (More accurate than Euler)
-            # 1. Update Position using current velocity and previous acceleration
+            if abs(gx) < gyro_thresh:
+                gx = 0
+            if abs(gy) < gyro_thresh:
+                gy = 0
+            if abs(gz) < gyro_thresh:
+                gz = 0
+        	
+            # Velocity Verlet integration 
+            # Position update (physics formula: s = v₀t + ½at²)
             position['x'] += velocity['x'] * dt + 0.5 * prev_accel['x'] * (dt**2)
             position['y'] += velocity['y'] * dt + 0.5 * prev_accel['y'] * (dt**2)
             position['z'] += velocity['z'] * dt + 0.5 * prev_accel['z'] * (dt**2)
 
-            # 2. Update Velocity using average of previous and current acceleration (Trapezoidal)
+            # Update Velocity using average of previous and current acceleration (trapezoid integration)
             velocity['x'] += 0.5 * (prev_accel['x'] + ax) * dt
             velocity['y'] += 0.5 * (prev_accel['y'] + ay) * dt
             velocity['z'] += 0.5 * (prev_accel['z'] + az_real) * dt
             
-            # 3. Update Rotation using Trapezoidal rule for angles
+            # Update Rotation using Trapezoidal rule for angles 
             rotation['x'] += 0.5 * (prev_gyro['x'] + gx) * dt
             rotation['y'] += 0.5 * (prev_gyro['y'] + gy) * dt
             rotation['z'] += 0.5 * (prev_gyro['z'] + gz) * dt
@@ -150,10 +167,13 @@ def background_thread():
             prev_accel = {'x': ax, 'y': ay, 'z': az_real}
             prev_gyro = {'x': gx, 'y': gy, 'z': gz}
 
-            # 3. LiDAR
-            lidar_val = round(tfluna.read()[0] * 100.0, 2) if tfluna else 0
+            # LiDAR reading
+            if tfluna:
+                lidar_val = round(tfluna.read()[0] * 100.0, 2)
+            else:
+                lidar_val = 0
 
-            # 4. LOGGING
+            # logging
             t_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             if log_writer:
                 log_writer.writerow([t_str, round(ax,2), round(ay,2), round(az,2),
@@ -161,9 +181,9 @@ def background_thread():
                                     round(position['x'],2), round(position['y'],2), round(position['z'],2),
                                     round(gx,2), round(gy,2), round(gz,2),
                                     round(rotation['x'],2), round(rotation['y'],2), round(rotation['z'],2)])
-                log_file.flush()
-
-            # 5. SEND TO UI
+                log_file.flush() #Ctrl+S for drone :)
+                
+            # send all to UI
             socketio.emit('update_data', {
                 'time': datetime.now().strftime("%H:%M:%S"),
                 'accelX': round(ax, 2), 'accelY': round(ay, 2), 'accelZ': round(az, 2),
@@ -179,7 +199,7 @@ def background_thread():
 def handle_connect():
     global last_time
     print('Client connected')
-    last_time = time.time()
+    last_time = time.time() # reset the counter
     socketio.start_background_task(target=background_thread)
 
 @socketio.on('control_motor')
