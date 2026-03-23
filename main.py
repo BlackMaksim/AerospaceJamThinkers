@@ -84,6 +84,7 @@ gravity = 0.0
 last_time = time.time()
 thread_started = False 
 targ_p = None #pressure in the target
+alt = 0.0 #altitude
 
 def background_thread():
     global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity
@@ -133,9 +134,11 @@ def background_thread():
             # Sensors reading
             if bmp:
                 pressure = bmp.get_pressure()/100
+                alt = bmp.get_altitude()
             else:
                 pressure = 1013.25
-
+                alt = 0.0
+                
             if mpu:
                 accel = mpu.get_accel_data()
                 gyro = mpu.get_gyro_data()
@@ -207,7 +210,9 @@ def background_thread():
                 'accelX': round(ax, 2), 'accelY': round(ay, 2), 'accelZ': round(az_real, 2),
                 'posX': round(position['x'], 2), 'posY': round(position['y'], 2), 'posZ': round(position['z'], 2),
                 'rotX': round(rotation['x'], 2), 'rotY': round(rotation['y'], 2), 'rotZ': round(rotation['z'], 2),
-                'lidarDistance': lidar_val, 'barometricPressure': pressure
+                'lidarDistance': lidar_val,
+                'barometricPressure': pressure,
+                'altitude': round(alt, 2)
             })
 
         except Exception as e:
