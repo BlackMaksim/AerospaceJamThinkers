@@ -68,6 +68,7 @@ prev_accel = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 prev_gyro = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 gravity = 0.0
 last_time = time.time()
+thread_started = False 
 
 def background_thread():
     global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity
@@ -75,12 +76,14 @@ def background_thread():
     # Gravitation calibration
     print("Info: Drone Calibration... Do not touch the drone for 1 second!")
     
-    socketio.sleep(1)
-
     if mpu:
-        accel = mpu.get_accel_data()
-        gravity = accel['z']
-        print(f"SUCCESS: Gravity is {gravity:.2f} m/s²")
+        total = 0
+        for i in range(30):  # Collect 30 samples for better accuracy
+            a = mpu.get_accel_data()
+            total += a['z']
+            socketio.sleep(0.02)
+        gravity = total / 30
+        print(f"SUCCESS: Gravity(avg) = {gravity:.2f} m/s²")
     else:
         gravity = 9.81
         print("WARNING: MPU not found. Use standart fravity 9.81 m/s².")
@@ -114,7 +117,7 @@ def background_thread():
         try:
             # Sensors reading
             if bmp:
-                pressure = bmp.get_pressure()
+                pressure = bmp.get_pressure()/100
             else:
                 pressure = 1013.25
 
@@ -176,7 +179,7 @@ def background_thread():
             # logging
             t_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             if log_writer:
-                log_writer.writerow([t_str, round(ax,2), round(ay,2), round(az,2),
+                log_writer.writerow([t_str, round(ax,2), round(ay,2), round(az_real,2),
                                     round(velocity['x'],2), round(velocity['y'],2), round(velocity['z'],2),
                                     round(position['x'],2), round(position['y'],2), round(position['z'],2),
                                     round(gx,2), round(gy,2), round(gz,2),
@@ -186,7 +189,7 @@ def background_thread():
             # send all to UI
             socketio.emit('update_data', {
                 'time': datetime.now().strftime("%H:%M:%S"),
-                'accelX': round(ax, 2), 'accelY': round(ay, 2), 'accelZ': round(az, 2),
+                'accelX': round(ax, 2), 'accelY': round(ay, 2), 'accelZ': round(az_real, 2),
                 'posX': round(position['x'], 2), 'posY': round(position['y'], 2), 'posZ': round(position['z'], 2),
                 'rotX': round(rotation['x'], 2), 'rotY': round(rotation['y'], 2), 'rotZ': round(rotation['z'], 2),
                 'lidarDistance': lidar_val, 'barometricPressure': pressure
@@ -197,10 +200,12 @@ def background_thread():
 
 @socketio.on('connect')
 def handle_connect():
-    global last_time
+    global last_time, thread_started
     print('Client connected')
-    last_time = time.time() # reset the counter
-    socketio.start_background_task(target=background_thread)
+    if not thread_started:
+        last_time = time.time() # reset the counter
+        socketio.start_background_task(target=background_thread)
+        thread_started = True
 
 @socketio.on('control_motor')
 def handle_motor_control(message):
