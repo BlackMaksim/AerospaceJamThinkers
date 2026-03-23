@@ -167,10 +167,24 @@
         </div>
 
         <div class="card">
-            <h2>📡 LiDAR / Barometer</h2>
+            <h2>📡 Environmental Data</h2>
             <div class="flex-row">
-                <div id="lidarVal" class="big lightcyan">-- cm</div>
-                <div id="pressVal" class="big lightcyan">-- hPa</div>
+                <div>
+                    <span class="label">Current Pressure:</span>
+                    <div id="pressVal" class="big lightcyan">-- hPa</div>
+                </div>
+                <div>
+                    <span class="label">Target Pressure:</span>
+                    <div id="targetPressVal" class="big lightcyan">Not marked</div>
+                </div>
+            </div>
+            <div style="margin-top: 10px; text-align: center;">
+                <button id="markTargetButton" style="padding: 10px 20px; font-size: 14px; background: #f39c12; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    📍 Mark Target
+                </button>
+            </div>
+            <div style="margin-top: 10px;">
+                <div id="lidarVal" class="big lightcyan">LiDAR: -- cm</div>
             </div>
         </div>
     </div>
@@ -235,6 +249,19 @@
                 addData(posChart, msg.time, [msg.posX, msg.posY, msg.posZ]);
                 addData(accelChart, msg.time, [msg.accelX, msg.accelY, msg.accelZ]);
             }
+        });
+
+        var markTargetButton = document.getElementById('markTargetButton');
+        var targetPressVal = document.getElementById('targetPressVal');
+        
+        markTargetButton.addEventListener('click', function() {
+            console.log('📍 Marking target...');
+            socket.emit('mark_target');
+        });
+        
+        socket.on('target_marked', function(msg) {
+            console.log('✅ Target marked!');
+            targetPressVal.innerText = msg.pressure.toFixed(2) + " hPa";
         });
         
         var takePictureButton = document.getElementById('takePictureButton');
