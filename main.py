@@ -9,6 +9,9 @@ from bmp180 import BMP180
 from mpu6050 import mpu6050
 from tfluna import TFLuna
 import RPi.GPIO as GPIO
+from picamera2 import Picamera2
+import io
+import base64
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'nasa-cant-crack-this-hehe'
@@ -55,6 +58,17 @@ try:
     print("SUCCESS: GPIO initialized.")
 except:
     print("ERROR: GPIO initialization failed.")
+
+try:
+    picam2 = Picamera2()
+    camera_config = picam2.create_preview_configuration(main={"size": (640, 480)})
+    picam2.configure(camera_config)  
+    picam2.start()                   
+    ready = True
+    print("SUCCESS: Camera initialized.")
+except Exception as e:
+    ready = False
+    print(f"WARNING: Camera not found. {e}")
 
 @app.route('/')
 def index():
@@ -217,6 +231,22 @@ def handle_motor_control(message):
         GPIO.output(IN1, GPIO.LOW); GPIO.output(IN2, GPIO.HIGH)
     elif action == 'stop':
         GPIO.output(IN1, GPIO.LOW); GPIO.output(IN2, GPIO.LOW)
+
+@socketio.on('request_image')
+def handle_image_request():    
+    if not ready:
+        print("ERROR: Camera not available.")
+        return
+    try:
+        stream = io.BytesIO()
+        picam2.capture_file(stream, format='jpeg')
+        stream.seek(0) # Ctrl+Home (go to the beginning for reading)
+        image_data = stream.read()
+        b64_image = base64.b64encode(image_data).decode('utf-8')
+        socketio.emit('new_image', {'image_data': b64_image})
+        print("Image sent to client.")
+    except Exception as e:
+        print(f"ERROR: Could not capture image. {e}")
 
 def main():
     socketio.run(app, host='0.0.0.0', port=80, allow_unsafe_werkzeug=True)
