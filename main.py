@@ -85,6 +85,7 @@ last_time = time.time()
 thread_started = False 
 targ_p = None #pressure in the target
 alt = 0.0 #altitude
+dist = None # distance to target
 
 def background_thread():
     global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity
@@ -263,6 +264,16 @@ def handle_mark_target():
         socketio.emit('target_marked', {'pressure': round(targ_p, 2)})
     else:
         print("ERROR: BMP not available")
+
+@socketio.on('read_lidar_tgt')
+def handle_read_lidar():
+    global dist
+    if tfluna:
+        dist = tfluna.read()[0] * 100.0 # distance to target in meters
+        print(f"Luna target marked! Distance to target: {dist:.2f} сm")
+        socketio.emit('targetData', {'lidarDistance': round(dist, 2)})
+    else:
+        print("ERROR: TF-Luna not available")
 
 def main():
     socketio.run(app, host='0.0.0.0', port=80, allow_unsafe_werkzeug=True)
