@@ -83,6 +83,7 @@ prev_gyro = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 gravity = 0.0
 last_time = time.time()
 thread_started = False 
+targ_p = None #pressure in the target
 
 def background_thread():
     global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity
@@ -247,6 +248,16 @@ def handle_image_request():
         print("Image sent to client.")
     except Exception as e:
         print(f"ERROR: Could not capture image. {e}")
+
+@socketio.on('mark_target')
+def handle_mark_target():
+    global targ_p
+    if bmp:
+        targ_p = bmp.get_pressure() / 100
+        print(f"Target marked! Pressure at target: {targ_p:.2f} hPa")
+        socketio.emit('target_marked', {'pressure': round(targ_p, 2)})
+    else:
+        print("ERROR: BMP not available")
 
 def main():
     socketio.run(app, host='0.0.0.0', port=80, allow_unsafe_werkzeug=True)
