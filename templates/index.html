@@ -175,6 +175,16 @@
         </div>
     </div>
 
+    <div style="margin-top: 30px; padding: 20px; background: #f0f0f0; border-radius: 10px;">
+        <h2>📸 Camera</h2>
+        <button id="takePictureButton" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
+            Take Picture
+        </button>
+        <br><br>
+        <img id="cameraImage" src="" alt="Camera not activated yet" 
+             style="width: 640px; height: 480px; border: 2px solid #333; border-radius: 5px;">
+    </div>
+
     <script>
         const socket = io.connect('http://' + document.domain + ':' + location.port);
         const maxDataPoints = 40;
@@ -225,6 +235,19 @@
                 addData(posChart, msg.time, [msg.posX, msg.posY, msg.posZ]);
                 addData(accelChart, msg.time, [msg.accelX, msg.accelY, msg.accelZ]);
             }
+        });
+        
+        var takePictureButton = document.getElementById('takePictureButton');
+        var cameraImage = document.getElementById('cameraImage');
+        
+        takePictureButton.addEventListener('click', function() {
+            console.log('📸 Requesting image...');
+            socket.emit('request_image');
+        });
+        
+        socket.on('new_image', function(msg) {
+            console.log('✅ Image received!');
+            cameraImage.src = 'data:image/jpeg;base64,' + msg.image_data;
         });
         
         // Add new data point to chart
