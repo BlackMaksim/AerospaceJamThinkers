@@ -189,8 +189,13 @@
             </div>
             <div class="sensor-card">
                 <p>LiDAR Live: <span id="lidarVal">--</span> cm</p>
-                <p>LiDAR Target: <span id="lidarTargetDist">--</span> cm</p>
-                <button id="readLidarBtn" class="action-btn">📍 Read LiDAR Target</button>
+                <hr>
+                <p>Target 1: <span id="lidarTargetDist1">--</span> cm</p>
+                <button id="readLidarBtn1" class="action-btn">📍 Read Target 1</button>
+                <p>Target 2: <span id="lidarTargetDist2">--</span> cm</p>
+                <button id="readLidarBtn2" class="action-btn">📍 Read Target 2</button>
+                
+                <p><b>Total Distance: <span id="lidarTotalDist">--</span> cm</b></p>
             </div>
         </div>
     </div>
@@ -271,17 +276,33 @@
             targetPressVal.innerText = msg.pressure.toFixed(2) + " hPa";
         });
 
-        var readLidarBtn = document.getElementById('readLidarBtn');
+        var readLidarBtn1 = document.getElementById('readLidarBtn1');
+        var readLidarBtn2 = document.getElementById('readLidarBtn2');
         
-        readLidarBtn.addEventListener('click', function() {
-            console.log('Measuring distnace to the target...');
-            socket.emit('read_lidar_tgt');
+        readLidarBtn1.addEventListener('click', function() {
+            console.log('Measuring distnace to the target1...');
+            socket.emit('read_lidar_tgt1');
+        });
+
+        readLidarBtn2.addEventListener('click', function() {
+            console.log('Measuring distnace to the target2...');
+            socket.emit('read_lidar_tgt2');
         });
     
         socket.on('targetData', function(msg) {
-            console.log('distance');
-            document.getElementById('lidarTargetDist').innerText = msg.lidarDistance + " cm";            
-        });
+        // Якщо сервер прислав lidarDistance1, оновлюємо перше поле
+        if (msg.lidarDistance1 !== undefined) {
+            console.log('Target 1 distance received:', msg.lidarDistance1);
+            document.getElementById('lidarTargetDist1').innerText = msg.lidarDistance1 + " cm";            
+        }
+        
+        // Якщо сервер прислав lidarDistance2 (а разом з ним і Total), оновлюємо їх
+        if (msg.lidarDistance2 !== undefined) {
+            console.log('Target 2 and Total received!');
+            document.getElementById('lidarTargetDist2').innerText = msg.lidarDistance2 + " cm"; 
+            document.getElementById('lidarTotalDist').innerText = msg.lidarTotal + " cm";   
+        }
+    });
 
         
         var takePictureButton = document.getElementById('takePictureButton');
