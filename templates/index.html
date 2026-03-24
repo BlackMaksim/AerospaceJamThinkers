@@ -196,6 +196,12 @@
                 <button id="readLidarBtn2" class="action-btn">Read Target 2</button>
                 
                 <p><b>Total Distance: <span id="lidarTotalDist">--</span> cm</b></p>
+                <hr>
+                <button id="toggleScanBtn" style="padding: 10px 20px; font-size: 14px; background: #9b59b6; color: white; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 10px;">
+                    Start/Stop 360° Scan
+                </button>
+                <p><b>Lidar Scan Data:</b></p>
+                <textarea id="scanData" rows="4" style="width: 100%; background: #222; color: #0f0; border: 1px solid #444; font-family: monospace;" readonly></textarea>
             </div>
         </div>
     </div>
@@ -282,6 +288,20 @@
         var readLidarBtn1 = document.getElementById('readLidarBtn1');
         var readLidarBtn2 = document.getElementById('readLidarBtn2');
         
+        var toggleScanBtn = document.getElementById('toggleScanBtn');
+        var scanDataBox = document.getElementById('scanData');
+
+        toggleScanBtn.addEventListener('click', function() {
+            console.log('Toggling 360 scan...');
+            socket.emit('toggle_scan');
+            scanDataBox.value = "Scanning... Spin the drone!"; 
+        });
+
+        socket.on('scan_results', function(msg) {
+            console.log('Data from scanning received');
+            scanDataBox.value = msg.data.join(', '); 
+        });
+        
         readLidarBtn1.addEventListener('click', function() {
             console.log('Measuring distnace to the target1...');
             socket.emit('read_lidar_tgt1');
@@ -304,7 +324,6 @@
             document.getElementById('lidarTotalDist').innerText = msg.lidarTotal + " cm";   
         }
     });
-
         
         var takePictureButton = document.getElementById('takePictureButton');
         var cameraImage = document.getElementById('cameraImage');
