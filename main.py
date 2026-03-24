@@ -116,7 +116,7 @@ def background_thread():
                    'VelX', 'VelY', 'VelZ', 
                    'PosX', 'PosY', 'PosZ', 
                    'GyroX', 'GyroY', 'GyroZ',
-                   'RotX', 'RotY', 'RotZ'] 
+                   'RotX', 'RotY', 'RotZ', 'Altitude'] 
         log_writer.writerow(headers)
         print(f"INFO: High-Accuracy Logging started: {filename}")
     except:
@@ -201,7 +201,7 @@ def background_thread():
                                     round(velocity['x'],2), round(velocity['y'],2), round(velocity['z'],2),
                                     round(position['x'],2), round(position['y'],2), round(position['z'],2),
                                     round(gx,2), round(gy,2), round(gz,2),
-                                    round(rotation['x'],2), round(rotation['y'],2), round(rotation['z'],2)])
+                                    round(rotation['x'],2), round(rotation['y'],2), round(rotation['z'],2), round(alt, 2)])
                 log_file.flush() #Ctrl+S for drone :)
                 
             # send all to UI
