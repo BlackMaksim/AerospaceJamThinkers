@@ -89,6 +89,8 @@ video_streaming = False
 targ_p = None # pressure in the target
 alt = 0.0 # altitude
 dist1 = dist2 = None # distance to target1 and target2
+scanning = False
+scan_data = []
 
 def background_thread():
     global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity
@@ -195,6 +197,8 @@ def background_thread():
             # LiDAR reading
             if tfluna:
                 lidar_val = round(tfluna.read()[0] * 100.0, 2)
+                if scanning:
+                    scan_data.append(lidar_val) 
             else:
                 lidar_val = 0
 
@@ -317,6 +321,19 @@ def handle_read_lidar2():
         print(f"Target 2 marked {dist2:.2f} cm. Total distance: {total:.2f} cm")
     else:
         print("ERROR: TF-Luna not available")
+
+@socketio.on('toggle_scan')
+def handle_toggle_scan():
+    global scanning, scan_data
+    
+    if not scanning:
+        scan_data = [] # clear previous data
+        scanning = True
+        print("INFO: LiDAR scan started!")
+    else:
+        scanning = False
+        print(f"INFO: LiDAR scan stopped!")
+        socketio.emit('scan_results', {'data': scan_data})
 
 def main():
     socketio.run(app, host='0.0.0.0', port=80, allow_unsafe_werkzeug=True)
