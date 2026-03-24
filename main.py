@@ -8,6 +8,7 @@ from datetime import datetime
 from bmp180 import BMP180
 from mpu6050 import mpu6050
 from tfluna import TFLuna
+
 import RPi.GPIO as GPIO
 from picamera2 import Picamera2
 import io
@@ -58,7 +59,8 @@ try:
     print("SUCCESS: GPIO initialized.")
 except:
     print("ERROR: GPIO initialization failed.")
-
+    
+# Camera check
 try:
     picam2 = Picamera2()
     camera_config = picam2.create_preview_configuration(main={"size": (640, 480)})
@@ -74,7 +76,7 @@ except Exception as e:
 def index():
     return render_template('index.html')
 
-# # Drone state variables (position, velocity, rotation ...)
+# Global variables initialization
 velocity = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 position = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 rotation = {'x': 0.0, 'y': 0.0, 'z': 0.0}
@@ -83,9 +85,11 @@ prev_gyro = {'x': 0.0, 'y': 0.0, 'z': 0.0}
 gravity = 0.0
 last_time = time.time()
 thread_started = False 
-targ_p = None #pressure in the target
-alt = 0.0 #altitude
+video_streaming = False
+targ_p = None # pressure in the target
+alt = 0.0 # altitude
 dist1 = dist2 = None # distance to target1 and target2
+
 def background_thread():
     global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity
 
@@ -218,6 +222,28 @@ def background_thread():
         except Exception as e:
             print(f"Loop Error: {e}")
 
+def camera_stream_thread():
+    global video_streaming
+    while True:
+        socketio.sleep(0.5) # 2FPS
+        
+        if video_streaming and ready:
+            try:
+                stream = io.BytesIO()
+                picam2.capture_file(stream, format='jpeg')
+                stream.seek(0)
+                image_data = stream.read()
+                b64_image = base64.b64encode(image_data).decode('utf-8')
+                socketio.emit('new_image', {'image_data': b64_image})
+            except Exception as e:
+                print(f"Camera stream error: {e}")
+
+@socketio.on('toggle_video')
+def handle_toggle_video():
+    global video_streaming
+    video_streaming = not video_streaming 
+    print(f"Video streaming is now: {video_streaming}")
+
 @socketio.on('connect')
 def handle_connect():
     global last_time, thread_started
@@ -225,6 +251,7 @@ def handle_connect():
     if not thread_started:
         last_time = time.time() # reset the counter
         socketio.start_background_task(target=background_thread)
+        socketio.start_background_task(target=camera_stream_thread)
         thread_started = True
 
 @socketio.on('control_motor')
