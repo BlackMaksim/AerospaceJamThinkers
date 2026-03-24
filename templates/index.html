@@ -187,8 +187,10 @@
                     📍 Mark Target
                 </button>
             </div>
-            <div style="margin-top: 10px;">
-                <div id="lidarVal" class="big lightcyan">LiDAR: -- cm</div>
+            <div class="sensor-card">
+                <p>LiDAR Live: <span id="lidarVal">--</span> cm</p>
+                <p>LiDAR Target: <span id="lidarTargetDist">--</span> cm</p>
+                <button id="readLidarBtn" class="action-btn">📍 Read LiDAR Target</button>
             </div>
         </div>
     </div>
@@ -268,6 +270,19 @@
             console.log('✅ Target marked!');
             targetPressVal.innerText = msg.pressure.toFixed(2) + " hPa";
         });
+
+        var readLidarBtn = document.getElementById('readLidarBtn');
+        
+        readLidarBtn.addEventListener('click', function() {
+            console.log('Measuring distnace to the target...');
+            socket.emit('read_lidar_tgt');
+        });
+    
+        socket.on('targetData', function(msg) {
+            console.log('distance');
+            document.getElementById('lidarTargetDist').innerText = msg.lidarDistance + " cm";            
+        });
+
         
         var takePictureButton = document.getElementById('takePictureButton');
         var cameraImage = document.getElementById('cameraImage');
