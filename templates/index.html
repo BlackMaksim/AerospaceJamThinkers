@@ -135,15 +135,15 @@
 <body>
 
     <div class="controls">
-        <h1>🚀 Welcome to Aerospace Jam Thinkers Ground Control!</h1>
-        <button class="btn-fwd" onclick="sendCommand('forward')">⬆️ Forward</button>
-        <button class="btn-stop" onclick="sendCommand('stop')">⏹️ Stop</button>
-        <button class="btn-bwd" onclick="sendCommand('backward')">⬇️ Backward</button>
+        <h1>Welcome to Aerospace Jam Thinkers Ground Control!</h1>
+        <button class="btn-fwd" onclick="sendCommand('forward')">Forward</button>
+        <button class="btn-stop" onclick="sendCommand('stop')">Stop</button>
+        <button class="btn-bwd" onclick="sendCommand('backward')">Backward</button>
     </div>
 
     <div class="dashboard">
         <div class="card card-full-width">
-            <h2 class="yellow">📍 Integrated Navigation Data (Absolute Position)</h2>
+            <h2 class="yellow">Integrated Navigation Data (Absolute Position)</h2>
             <div class="pos-grid">
                 <div class="val-box"><span class="label">Pos X (m)</span><span id="posX" class="yellow">0.00</span></div>
                 <div class="val-box"><span class="label">Pos Y (m)</span><span id="posY" class="orange">0.00</span></div>
@@ -153,12 +153,12 @@
         </div>
 
         <div class="card">
-            <h2>📈 Acceleration (m/s²)</h2>
+            <h2>Acceleration (m/s²)</h2>
             <canvas id="accelChart"></canvas>
         </div>
 
         <div class="card">
-            <h2>🔄 Absolute Rotation (deg)</h2>
+            <h2>Absolute Rotation (deg)</h2>
             <div class="rot-grid">
                 <div class="val-box"><span class="label">Roll</span><span id="rotX" class="blue">0.0</span></div>
                 <div class="val-box"><span class="label">Pitch</span><span id="rotY" class="purple">0.0</span></div>
@@ -167,7 +167,7 @@
         </div>
 
         <div class="card">
-            <h2>📡 Environmental Data</h2>
+            <h2>Environmental Data</h2>
             <div class="flex-row">
                 <div>
                     <span class="label">Current Pressure:</span>
@@ -184,16 +184,16 @@
             </div>
             <div style="margin-top: 10px; text-align: center;">
                 <button id="markTargetButton" style="padding: 10px 20px; font-size: 14px; background: #f39c12; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                    📍 Mark Target
+                    Mark Target
                 </button>
             </div>
             <div class="sensor-card">
                 <p>LiDAR Live: <span id="lidarVal">--</span> cm</p>
                 <hr>
                 <p>Target 1: <span id="lidarTargetDist1">--</span> cm</p>
-                <button id="readLidarBtn1" class="action-btn">📍 Read Target 1</button>
+                <button id="readLidarBtn1" class="action-btn">Read Target 1</button>
                 <p>Target 2: <span id="lidarTargetDist2">--</span> cm</p>
-                <button id="readLidarBtn2" class="action-btn">📍 Read Target 2</button>
+                <button id="readLidarBtn2" class="action-btn">Read Target 2</button>
                 
                 <p><b>Total Distance: <span id="lidarTotalDist">--</span> cm</b></p>
             </div>
@@ -201,9 +201,12 @@
     </div>
 
     <div style="margin-top: 30px; padding: 20px; background: #f0f0f0; border-radius: 10px;">
-        <h2>📸 Camera</h2>
+        <h2>Camera</h2>
         <button id="takePictureButton" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
             Take Picture
+        </button>
+        <button id="toggleVideoButton" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #e74c3c; color: white; border: none; border-radius: 5px; margin-left: 10px;">
+            Start/Stop Video
         </button>
         <br><br>
         <img id="cameraImage" src="" alt="Camera not activated yet" 
@@ -267,12 +270,12 @@
         var targetPressVal = document.getElementById('targetPressVal');
         
         markTargetButton.addEventListener('click', function() {
-            console.log('📍 Marking target...');
+            console.log('Marking target...');
             socket.emit('mark_target');
         });
         
         socket.on('target_marked', function(msg) {
-            console.log('✅ Target marked!');
+            console.log('Target marked!');
             targetPressVal.innerText = msg.pressure.toFixed(2) + " hPa";
         });
 
@@ -290,13 +293,11 @@
         });
     
         socket.on('targetData', function(msg) {
-        // Якщо сервер прислав lidarDistance1, оновлюємо перше поле
         if (msg.lidarDistance1 !== undefined) {
             console.log('Target 1 distance received:', msg.lidarDistance1);
             document.getElementById('lidarTargetDist1').innerText = msg.lidarDistance1 + " cm";            
         }
         
-        // Якщо сервер прислав lidarDistance2 (а разом з ним і Total), оновлюємо їх
         if (msg.lidarDistance2 !== undefined) {
             console.log('Target 2 and Total received!');
             document.getElementById('lidarTargetDist2').innerText = msg.lidarDistance2 + " cm"; 
@@ -307,14 +308,21 @@
         
         var takePictureButton = document.getElementById('takePictureButton');
         var cameraImage = document.getElementById('cameraImage');
+
+        var toggleVideoButton = document.getElementById('toggleVideoButton');
+        
+        toggleVideoButton.addEventListener('click', function() {
+            console.log('Toggling video stream...');
+            socket.emit('toggle_video');
+        });
         
         takePictureButton.addEventListener('click', function() {
-            console.log('📸 Requesting image...');
+            console.log('Requesting image...');
             socket.emit('request_image');
         });
         
         socket.on('new_image', function(msg) {
-            console.log('✅ Image received!');
+            console.log('Image received!');
             cameraImage.src = 'data:image/jpeg;base64,' + msg.image_data;
         });
         
