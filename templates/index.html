@@ -6,6 +6,7 @@
     <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
     
     <style>
+        /* Global styles*/
         body { 
             font-family: 'Segoe UI', monospace;
             background: #1a1a1a; 
@@ -19,6 +20,7 @@
             grid-template-columns: 1fr 1fr; 
             gap: 20px;
         }
+        /* Cards */
         .card { 
             background: #2d2d2d;
             border-radius: 10px; 
@@ -26,7 +28,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
             border: 1px solid #444; 
         }
-        .card-full-width { 
+        .card-fw { 
             grid-column: 1 / -1; 
             border: 1px solid #f1c40f;
         }
@@ -34,6 +36,11 @@
             display: flex;
             justify-content: space-around;
         }
+        .center {
+            margin-top: 10px; 
+            text-align: center;
+        }
+        /*Typography */
         h2 { 
             margin-top: 0;
             color: #4caf50; 
@@ -42,6 +49,7 @@
             padding-bottom: 5px; 
             text-transform: uppercase;
         }
+        /*Data Grids */
         .pos-grid { 
             display: flex;
             justify-content: space-around;
@@ -68,41 +76,10 @@
             color: #888; 
             display: block; 
         }
-        .controls { 
-            grid-column: 1 / -1; 
-            text-align: center; 
-            margin-bottom: 20px;
-            background: #222;
-            padding: 15px;
-            border-radius: 10px;
+        .big { 
+            font-size: 2rem; 
         }
-        button { 
-            padding: 15px 40px;
-            font-size: 18px;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px; 
-            margin: 0 10px;
-            font-weight: bold;
-            color: white; 
-            transition: all 0.2s;
-        }
-        .btn-fwd { 
-            background: #27ae60; 
-            box-shadow: 0 4px 0 #1e8449; 
-        }
-        .btn-stop { 
-            background: #c0392b;
-            box-shadow: 0 4px 0 #922b21;
-        }
-        .btn-bwd { 
-            background: #f39c12;
-            box-shadow: 0 4px 0 #d35400; 
-        }
-        button:active { 
-            transform: translateY(4px);
-            box-shadow: none; 
-        }
+        /*Colors*/
         .yellow { 
             color: #f1c40f;
         }
@@ -124,11 +101,109 @@
         .lightcyan { 
             color: #00bcd4;
         }
-        .big  {
-            font-size: 2rem;
+        .controls { 
+            grid-column: 1 / -1; 
+            text-align: center; 
+            margin-bottom: 20px;
+            background: #222;
+            padding: 15px;
+            border-radius: 10px;
         }
+        /* Buttons */
+        button { 
+            padding: 15px 40px;
+            font-size: 18px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px; 
+            margin: 0 10px;
+            font-weight: bold;
+            color: white; 
+            transition: all 0.2s;
+        }
+        button:active { 
+            transform: translateY(4px);
+            box-shadow: none; 
+        }
+        .btn-fwd { 
+            background: #27ae60; 
+            box-shadow: 0 4px 0 #1e8449; 
+        }
+        .btn-stop { 
+            background: #c0392b;
+            box-shadow: 0 4px 0 #922b21;
+        }
+        .btn-bwd { 
+            background: #f39c12;
+            box-shadow: 0 4px 0 #d35400; 
+        }
+        .btn-warning { 
+            padding: 10px 20px; 
+            font-size: 14px;
+            background: #f39c12;
+            color: white; 
+            border: none; 
+            border-radius: 5px;
+            cursor: pointer; 
+        }
+        .btn-purple { 
+            padding: 10px 20px; 
+            font-size: 14px;
+            background: #9b59b6; 
+            color: white; border: none;
+            border-radius: 5px; 
+            cursor: pointer;
+            margin-bottom: 10px; 
+        }
+        .btn-primary { 
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white; 
+        }
+        .btn-danger { 
+            padding: 10px 20px;
+            font-size: 16px; 
+            cursor: pointer;
+            background-color: #e74c3c;
+            color: white; 
+            border: none;
+            border-radius: 5px;
+            margin-left: 10px; 
+        }
+        .action-btn { 
+            background: #555; 
+            font-size: 14px; 
+            padding: 8px 15px;
+        }
+        /* Sensors and Camera */
         canvas { 
             max-height: 180px;
+        }
+        .lidarData {
+            width: 100%; 
+            background: #222; 
+            color: #0f0; 
+            border: 1px solid #444; 
+            font-family: monospace;
+            box-sizing: border-box;
+            padding: 5px;
+        }
+        .cameraView {
+            margin-top: 30px; 
+            padding: 20px; 
+            background: #2d2d2d;
+            border-radius: 10px;
+            border: 1px solid #444;
+        }
+        .img {
+            width: 640px; 
+            height: 480px; 
+            border: 2px solid #333; 
+            border-radius: 5px;
+            margin-top: 15px;
+            background: #000;
         }
     </style>
 </head>
@@ -142,7 +217,7 @@
     </div>
 
     <div class="dashboard">
-        <div class="card card-full-width">
+        <div class="card card-fw">
             <h2 class="yellow">Integrated Navigation Data (Absolute Position)</h2>
             <div class="pos-grid">
                 <div class="val-box"><span class="label">Pos X (m)</span><span id="posX" class="yellow">0.00</span></div>
@@ -169,25 +244,25 @@
         <div class="card">
             <h2>Environmental Data</h2>
             <div class="flex-row">
-                <div>
+                <div class="val-box">
                     <span class="label">Current Pressure:</span>
                     <div id="pressVal" class="big lightcyan">-- hPa</div>
                 </div>
-                <div>
+                <div class="val-box">
                     <span class="label">Altitude (Sea Level):</span>
                     <div id="altVal" class="big lightcyan">-- m</div>
                 </div>
-                <div>
+                <div class="val-box">
                     <span class="label">Target Pressure:</span>
                     <div id="targetPressVal" class="big lightcyan">Not marked</div>
                 </div>
             </div>
-            <div style="margin-top: 10px; text-align: center;">
-                <button id="markTargetButton" style="padding: 10px 20px; font-size: 14px; background: #f39c12; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            <div class="center">
+                <button id="markTargetButton" class="btn-warning">
                     Mark Target
                 </button>
             </div>
-            <div class="sensor-card">
+            <div class="sensor-card" style="margin-top: 15px;">
                 <p>LiDAR Live: <span id="lidarVal">--</span> cm</p>
                 <hr>
                 <p>Target 1: <span id="lidarTargetDist1">--</span> cm</p>
@@ -197,26 +272,25 @@
                 
                 <p><b>Total Distance: <span id="lidarTotalDist">--</span> cm</b></p>
                 <hr>
-                <button id="toggleScanBtn" style="padding: 10px 20px; font-size: 14px; background: #9b59b6; color: white; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 10px;">
+                <button id="toggleScanBtn" class="btn-purple">
                     Start/Stop 360° Scan
                 </button>
                 <p><b>Lidar Scan Data:</b></p>
-                <textarea id="scanData" rows="4" style="width: 100%; background: #222; color: #0f0; border: 1px solid #444; font-family: monospace;" readonly></textarea>
+                <textarea id="scanData" rows="4" class="lidarData" readonly></textarea>
             </div>
         </div>
     </div>
 
-    <div style="margin-top: 30px; padding: 20px; background: #f0f0f0; border-radius: 10px;">
+    <div class="cameraView">
         <h2>Camera</h2>
-        <button id="takePictureButton" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
+        <button id="takePictureButton" class="btn-primary">
             Take Picture
         </button>
-        <button id="toggleVideoButton" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #e74c3c; color: white; border: none; border-radius: 5px; margin-left: 10px;">
+        <button id="toggleVideoButton" class="btn-danger">
             Start/Stop Video
         </button>
-        <br><br>
-        <img id="cameraImage" src="" alt="Camera not activated yet" 
-             style="width: 640px; height: 480px; border: 2px solid #333; border-radius: 5px;">
+        <br>
+        <img id="cameraImage" class="img" src="" alt="Camera not activated yet">
     </div>
 
     <script>
@@ -345,7 +419,6 @@
             cameraImage.src = 'data:image/jpeg;base64,' + msg.image_data;
         });
         
-        // Add new data point to chart
         function addData(chart, label, newValues) {
             chart.data.labels.push(label);
             chart.data.datasets.forEach((dataset, index) => dataset.data.push(newValues[index]));
