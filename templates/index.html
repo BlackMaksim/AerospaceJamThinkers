@@ -337,7 +337,7 @@
                 document.getElementById('rotX').innerText = msg.rotX.toFixed(1);
                 document.getElementById('rotY').innerText = msg.rotY.toFixed(1);
                 document.getElementById('rotZ').innerText = msg.rotZ.toFixed(1);
-                document.getElementById('lidarVal').innerText = msg.lidarDistance + " cm";
+                document.getElementById('lidarVal').innerText = msg.lidarDistance;
                 document.getElementById('pressVal').innerText = msg.barometricPressure + " hPa";
                 document.getElementById('altVal').innerText = msg.altitude.toFixed(2) + " m";
 
@@ -389,13 +389,13 @@
         socket.on('targetData', function(msg) {
         if (msg.lidarDistance1 !== undefined) {
             console.log('Target 1 distance received:', msg.lidarDistance1);
-            document.getElementById('lidarTargetDist1').innerText = msg.lidarDistance1 + " cm";            
+            document.getElementById('lidarTargetDist1').innerText = msg.lidarDistance1;            
         }
         
         if (msg.lidarDistance2 !== undefined) {
             console.log('Target 2 and Total received!');
-            document.getElementById('lidarTargetDist2').innerText = msg.lidarDistance2 + " cm"; 
-            document.getElementById('lidarTotalDist').innerText = msg.lidarTotal + " cm";   
+            document.getElementById('lidarTargetDist2').innerText = msg.lidarDistance2; 
+            document.getElementById('lidarTotalDist').innerText = msg.lidarTotal;   
         }
     });
         
