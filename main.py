@@ -86,14 +86,15 @@ gravity = 0.0
 last_time = time.time()
 thread_started = False 
 video_streaming = False
-targ_p = None # pressure in the target
 alt = 0.0 # altitude
 dist1 = dist2 = None # distance to target1 and target2
 scanning = False
 scan_data = []
+lidar_val = None
+pressure = None
 
 def background_thread():
-    global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity
+    global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity, lidar_val, pressure
 
     # Gravitation calibration
     print("Info: Drone Calibration... Do not touch the drone for 1 second!")
@@ -287,19 +288,18 @@ def handle_image_request():
 
 @socketio.on('mark_target')
 def handle_mark_target():
-    global targ_p
-    if bmp:
-        targ_p = bmp.get_pressure() / 100
-        print(f"Target marked! Pressure at target: {targ_p:.2f} hPa")
-        socketio.emit('target_marked', {'pressure': round(targ_p, 2)})
+    global pressure
+    if bmp and pressure is not None:
+        print(f"Target marked! Pressure at target: {pressure:.2f} hPa")
+        socketio.emit('target_marked', {'pressure': round(pressure, 2)})
     else:
         print("ERROR: BMP not available")
 
 @socketio.on('read_lidar_tgt1')
 def handle_read_lidar1():
-    global dist1
+    global dist1, lidar_val
     if tfluna:
-        dist1 = tfluna.read()[0] * 100.0 # distance to target1 in cm
+        dist1 = lidar_val # distance to target1 in cm
         print(f"Distance to target1: {dist1:.2f} сm")
         socketio.emit('targetData', {'lidarDistance1': round(dist1, 2)})
     else:
@@ -307,9 +307,9 @@ def handle_read_lidar1():
 
 @socketio.on('read_lidar_tgt2')
 def handle_read_lidar2():
-    global dist1, dist2
+    global dist1, dist2 , lidar_val
     if tfluna:
-        dist2 = tfluna.read()[0] * 100.0 # distance to target2 in cm
+        dist2 = lidar_val # distance to target2 in cm
         if dist1 is not None:
             total = dist1 + dist2
         else:
