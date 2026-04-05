@@ -214,6 +214,8 @@
         <button class="btn-fwd" onclick="sendCommand('forward')">Forward</button>
         <button class="btn-stop" onclick="sendCommand('stop')">Stop</button>
         <button class="btn-bwd" onclick="sendCommand('backward')">Backward</button>
+        <label for="motorSpeed">Motor Speed: <span id="speedValue">50</span>%</label>
+        <input type="range" id="motorSpeed" min="0" max="100" value="50" oninput="document.getElementById('speedValue').innerText = this.value">
     </div>
 
     <div class="dashboard">
@@ -430,7 +432,10 @@
         }
         
         // Send motor command to server
-        function sendCommand(act) { socket.emit('control_motor', { action: act }); }
+        function sendCommand(act) { 
+            var currentSpeed = document.getElementById('motorSpeed').value;
+            socket.emit('control_motor', { action: act, speed: currentSpeed }); 
+        }
     </script>
 </body>
 </html>
