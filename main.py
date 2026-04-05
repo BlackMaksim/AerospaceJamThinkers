@@ -50,11 +50,16 @@ except:
 
 # Motors check
 IN1, IN2 = 12, 13
+ENA = 18  
 gpio_active = False
+pwm = None 
 try:
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(IN1, GPIO.OUT)
     GPIO.setup(IN2, GPIO.OUT)
+    GPIO.setup(ENA, GPIO.OUT)
+    pwm = GPIO.PWM(ENA, 100)
+    pwm.start(0)
     gpio_active = True
     print("SUCCESS: GPIO initialized.")
 except:
@@ -292,14 +297,18 @@ def handle_connect():
 
 @socketio.on('control_motor')
 def handle_motor_control(message):
-    if not gpio_active: return
+    if not gpio_active or pwm is None: return
     action = message.get('action')
+    speed = int(message.get('speed', 100))
     if action == 'forward':
         GPIO.output(IN1, GPIO.HIGH); GPIO.output(IN2, GPIO.LOW)
+        pwm.ChangeDutyCycle(speed)
     elif action == 'backward':
         GPIO.output(IN1, GPIO.LOW); GPIO.output(IN2, GPIO.HIGH)
+        pwm.ChangeDutyCycle(speed)
     elif action == 'stop':
         GPIO.output(IN1, GPIO.LOW); GPIO.output(IN2, GPIO.LOW)
+        pwm.ChangeDutyCycle(0)
 
 @socketio.on('request_image')
 def handle_image_request():    
