@@ -92,21 +92,43 @@ scanning = False
 scan_data = []
 lidar_val = None
 pressure = None
+offX = 0.0
+offY = 0.0
+offGX = 0.0
+offGY = 0.0
+offGZ = 0.0
 
 def background_thread():
-    global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity, lidar_val, pressure
+    global velocity, position, rotation, prev_accel, prev_gyro, last_time, gravity, lidar_val, pressure, offX, offY, offGX, offGY, offGZ
+   
 
     # Gravitation calibration
     print("Info: Drone Calibration... Do not touch the drone for 1 second!")
     
     if mpu:
-        total = 0
+        sum_z = 0.0
+        sum_x = 0.0
+        sum_y = 0.0
+        sum_Gx = 0.0
+        sum_Gy = 0.0
+        sum_Gz = 0.0
         for i in range(30):  # Collect 30 samples for better accuracy
             a = mpu.get_accel_data()
-            total += a['z']
+            g = mpu.get_gyro_data()
+            sum_x += a['x']
+            sum_y += a['y']
+            sum_z += a['z']
+            sum_Gx += g['x']
+            sum_Gy += g['y']
+            sum_Gz += g['z']
             socketio.sleep(0.02)
-        gravity = total / 30
-        print(f"SUCCESS: Gravity(avg) = {gravity:.2f} m/s²")
+        offX = sum_x / 30
+        offY = sum_y / 30
+        gravity = sum_z / 30
+        offGX = sum_Gx / 30
+        offGY = sum_Gy / 30
+        offGZ = sum_Gz / 30
+        print(f"SUCCESS: Gravity(avg) = {gravity:.2f}, offX={offX:.2f}, offY={offY:.2f}, offGyroX={offGX:.2f}, offGyroY={offGY:.2f}, offGyroZ={offGZ:.2f}")
     else:
         gravity = 9.81
         print("WARNING: MPU not found. Use standart fravity 9.81 m/s².")
@@ -157,6 +179,11 @@ def background_thread():
                 
             # Gravity Compensation (Z-axis)
             az_real = az - gravity
+            ax -= offX
+            ay -= offY
+            gx -= offGX
+            gy -= offGY
+            gz -= offGZ
             
             # Filtering noises from the sensor
             accel_thresh = 0.2
@@ -185,7 +212,11 @@ def background_thread():
             velocity['x'] += 0.5 * (prev_accel['x'] + ax) * dt
             velocity['y'] += 0.5 * (prev_accel['y'] + ay) * dt
             velocity['z'] += 0.5 * (prev_accel['z'] + az_real) * dt
-            
+
+            damping = 0.95
+            velocity['x'] *= damping
+            velocity['y'] *= damping
+            velocity['z'] *= damping
             # Update Rotation using Trapezoidal rule for angles 
             rotation['x'] += 0.5 * (prev_gyro['x'] + gx) * dt
             rotation['y'] += 0.5 * (prev_gyro['y'] + gy) * dt
@@ -230,7 +261,7 @@ def background_thread():
 def camera_stream_thread():
     global video_streaming
     while True:
-        socketio.sleep(0.5) # 2FPS
+        socketio.sleep(0.2) # 5FPS
         
         if video_streaming and ready:
             try:
