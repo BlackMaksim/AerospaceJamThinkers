@@ -235,7 +235,7 @@ def background_thread():
             if tfluna:
                 lidar_val = round(tfluna.read()[0] * 100.0, 2)
                 if scanning:
-                    scan_data.append(lidar_val) 
+                    scan_data.append({'r': lidar_val, 'theta': rotation['z']}) 
             else:
                 lidar_val = 0
 
