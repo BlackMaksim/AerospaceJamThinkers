@@ -68,7 +68,7 @@ except:
 # Camera check
 try:
     picam2 = Picamera2()
-    camera_config = picam2.create_preview_configuration(main={"size": (640, 480)})
+    camera_config = picam2.create_preview_configuration(main={"size": (320, 240)})
     picam2.configure(camera_config)  
     picam2.start()                   
     ready = True
@@ -266,7 +266,7 @@ def background_thread():
 def camera_stream_thread():
     global video_streaming
     while True:
-        socketio.sleep(0.2) # 5FPS
+        socketio.sleep(0.05) # 20FPS
         
         if video_streaming and ready:
             try:
