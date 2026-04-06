@@ -398,32 +398,34 @@
         });
 
         socket.on('scan_results', function(msg) {
-            console.log('Data from scanning received');
-            scanDataBox.value = msg.data.join(', '); 
+        console.log('Data from scanning received');
             
-            let mapPoints = [];
-            let totalReadings = msg.data.length;
+    
+        scanDataBox.value = msg.data.map(p => `r: ${p.r} cm, θ: ${Math.round(p.theta)}°`).join('\n');
             
-            if(totalReadings > 0) {
+        let mapPoints = [];
+        
+        if(msg.data.length > 0) {
                 
-                let angleStep = 360 / totalReadings; 
-                
-                for(let i = 0; i < totalReadings; i++) {
-                    let r = msg.data[i];
+              
+              for(let i = 0; i < msg.data.length; i++) {
                     
-                    if(r > 0) {
-                        let degrees = i * angleStep;
-                        let radians = degrees * (Math.PI / 180);
+                  
+                let r = msg.data[i].r;           
+                let degrees = msg.data[i].theta; 
+                    
+                if(r > 0) { 
+                    let radians = degrees * (Math.PI / 180);
+                    
+                    let x = r * Math.cos(radians);
+                    let y = r * Math.sin(radians);
                         
-                        let x = r * Math.cos(radians);
-                        let y = r * Math.sin(radians);
-                        
-                        mapPoints.push({ x: x, y: y });
-                    }
+                    mapPoints.push({ x: x, y: y });
                 }
+            }
                 
-                lidarChart.data.datasets[0].data = mapPoints;
-                lidarChart.update();
+            lidarChart.data.datasets[0].data = mapPoints;
+            lidarChart.update();
             }
         });
         
